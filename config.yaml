@@ -1,0 +1,69 @@
+# Minecraft Dungeons AI Training Config
+
+game:
+  process_name: "Dungeons-Win64-Shipping.exe"
+  window_title: "Minecraft Dungeons"
+  # Memory offsets (from Cheat Engine tables, may need updating per version)
+  memory:
+    hp_base: "Dungeons-Win64-Shipping.exe+03AAE4C0"
+    hp_offsets: [0x34, 0x38, 0x188, 0x1F0, 0xE60, 0x0, 0x8]
+    arrows_base: "pt_arrow"  # AOB-injected symbol
+    emerald_base: "pt_emrald"  # AOB-injected symbol
+
+capture:
+  target_fps: 30
+  resolution: [162, 90]  # Tiny for fast CNN inference. 162 (not 160) avoids candle conv2d backward bug
+  region: null  # null = full screen, or [left, top, right, bottom]
+
+actions:
+  # Movement: WASD
+  # Attack: left click
+  # Artifact 1-3: 1, 2, 3 keys
+  # Dodge: space
+  # Potion: Q
+  movement: ["w", "a", "s", "d"]
+  attack: "left_click"
+  artifacts: ["1", "2", "3"]
+  dodge: "space"
+  potion: "q"
+
+observation:
+  screen_shape: [3, 180, 320]  # C x H x W (channels first for CNN)
+  include_memory_state: true  # Include health/arrows as auxiliary obs
+  memory_state_dim: 5  # hp, arrows, emeralds
+
+env:
+  max_episode_steps: 1512
+  phase1_clears: 999
+  frame_stack: 2  # 2 frames for speed
+  reward:
+    survive: 0.0  # Removed — prevents circling
+    kill_enemy: 5.0
+    pick_up_item: 1.0
+    take_damage: -2.0
+    deal_damage: 0.5
+    progress: 10.0
+    boss_kill: 50.0
+    death: -50.0
+    timeout: -5.0
+
+training:
+  algorithm: "PPO"
+  total_timesteps: 20000000
+  learning_rate: 0.0003
+  n_steps: 1024
+  batch_size: 256
+  n_epochs: 4
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_range: 0.2
+  ent_coef: 0.1
+  vf_coef: 0.5
+  max_grad_norm: 0.5
+  device: "cuda"
+  save_freq: 100000
+  log_dir: "logs/"
+  model_dir: "models/"
+  num_envs: 48         # parallel simulator envs
+  fps_cap: 0          # max frames per second (0 = uncapped)
+  cpu_cores: null      # pin to specific cores, e.g. [0,1,2,3] or null = any

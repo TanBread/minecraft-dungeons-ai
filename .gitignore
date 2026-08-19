@@ -1,0 +1,8 @@
+/target
+*.txt
+models/
+maps/raw_frames.npy
+maps/wiki/
+maps/preview/
+maps/captured_map*.png
+maps/wiki_map*.png
