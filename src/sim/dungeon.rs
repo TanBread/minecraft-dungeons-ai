@@ -144,6 +144,7 @@ pub struct DungeonSimulator {
     stuck_count: u32,
     last_pos: (f32, f32),
     force_random: u32,
+    prev_dist_to_exit: f32,
 }
 
 impl DungeonSimulator {
@@ -182,6 +183,7 @@ impl DungeonSimulator {
             stuck_count: 0,
             last_pos: (0.0, 0.0),
             force_random: 0,
+            prev_dist_to_exit: -1.0,
         }
     }
 
@@ -202,6 +204,7 @@ impl DungeonSimulator {
         self.stuck_count = 0;
         self.last_pos = (self.player.x, self.player.y);
         self.force_random = 0;
+        self.prev_dist_to_exit = -1.0;
 
         let px = self.player.x as isize;
         let py = self.player.y as isize;
@@ -265,6 +268,7 @@ impl DungeonSimulator {
         self.stuck_count = 0;
         self.last_pos = (self.player.x, self.player.y);
         self.force_random = 0;
+        self.prev_dist_to_exit = -1.0;
 
         let px = self.player.x as isize;
         let py = self.player.y as isize;
@@ -357,6 +361,21 @@ impl DungeonSimulator {
             self.stuck_count = 0;
         }
         self.last_pos = cur_pos;
+
+        // Dense reward: distance to exit (shaping)
+        let new_dist_to_exit = physics::distance(
+            self.exit_pos.0 as f32, self.exit_pos.1 as f32,
+            self.player.x, self.player.y,
+        );
+        let old_dist = self.prev_dist_to_exit;
+        self.prev_dist_to_exit = new_dist_to_exit;
+        if old_dist >= 0.0 {
+            // Positive reward for getting closer, negative for moving away
+            reward += (old_dist - new_dist_to_exit) * 2.0;
+        }
+
+        // Small time penalty to encourage speed
+        reward -= 0.005;
 
         // Attack
         if action.attack && self.player.attack_cooldown <= 0.0 {
