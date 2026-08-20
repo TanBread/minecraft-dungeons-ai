@@ -30,6 +30,21 @@ impl RolloutBuffer {
         }
     }
 
+    pub fn reserve(&mut self, n_envs: usize, n_steps: usize) {
+        let cap = n_envs * n_steps;
+        self.screens.reserve_exact(cap);
+        self.memories.reserve_exact(cap);
+        self.move_actions.reserve_exact(cap);
+        self.attack_actions.reserve_exact(cap);
+        self.artifact_actions.reserve_exact(cap);
+        self.dodge_actions.reserve_exact(cap);
+        self.potion_actions.reserve_exact(cap);
+        self.log_probs.reserve_exact(cap);
+        self.rewards.reserve_exact(cap);
+        self.dones.reserve_exact(cap);
+        self.values.reserve_exact(cap);
+    }
+
     pub fn add(
         &mut self,
         screen: Vec<u8>,
@@ -58,17 +73,32 @@ impl RolloutBuffer {
     }
 
     pub fn clear(&mut self) {
-        self.screens = Vec::new();
-        self.memories = Vec::new();
-        self.move_actions = Vec::new();
-        self.attack_actions = Vec::new();
-        self.artifact_actions = Vec::new();
-        self.dodge_actions = Vec::new();
-        self.potion_actions = Vec::new();
-        self.log_probs = Vec::new();
-        self.rewards = Vec::new();
-        self.dones = Vec::new();
-        self.values = Vec::new();
+        self.screens.clear();
+        self.memories.clear();
+        self.move_actions.clear();
+        self.attack_actions.clear();
+        self.artifact_actions.clear();
+        self.dodge_actions.clear();
+        self.potion_actions.clear();
+        self.log_probs.clear();
+        self.rewards.clear();
+        self.dones.clear();
+        self.values.clear();
+    }
+
+    pub fn clear_and_shrink(&mut self) {
+        self.clear();
+        self.screens.shrink_to_fit();
+        self.memories.shrink_to_fit();
+        self.move_actions.shrink_to_fit();
+        self.attack_actions.shrink_to_fit();
+        self.artifact_actions.shrink_to_fit();
+        self.dodge_actions.shrink_to_fit();
+        self.potion_actions.shrink_to_fit();
+        self.log_probs.shrink_to_fit();
+        self.rewards.shrink_to_fit();
+        self.dones.shrink_to_fit();
+        self.values.shrink_to_fit();
     }
 
     pub fn len(&self) -> usize {

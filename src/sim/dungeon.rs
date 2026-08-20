@@ -371,11 +371,11 @@ impl DungeonSimulator {
         self.prev_dist_to_exit = new_dist_to_exit;
         if old_dist >= 0.0 {
             // Positive reward for getting closer, negative for moving away
-            reward += (old_dist - new_dist_to_exit) * 2.0;
+            reward += (old_dist - new_dist_to_exit) * 0.05;
         }
 
         // Small time penalty to encourage speed
-        reward -= 0.005;
+        reward -= 0.001;
 
         // Attack
         if action.attack && self.player.attack_cooldown <= 0.0 {

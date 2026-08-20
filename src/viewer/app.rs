@@ -130,9 +130,9 @@ impl SharedViewerState {
             s.avg_reward = avg_reward;
             s.phase = phase;
             s.map_name = map_name.to_string();
-            s.policy_loss = policy_loss;
-            s.value_loss = value_loss;
-            s.entropy = entropy;
+            if policy_loss > -1.0 { s.policy_loss = policy_loss; }
+            if value_loss > -1.0 { s.value_loss = value_loss; }
+            if entropy > -1.0 { s.entropy = entropy; }
             s.num_envs = num_envs;
         }
     }

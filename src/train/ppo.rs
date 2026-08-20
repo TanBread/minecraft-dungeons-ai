@@ -170,7 +170,7 @@ impl PPOTrainer {
                             hp, attack_cd, time, f32::INFINITY,
                             sps as f32, self.total_steps, total_reward / steps_done as f32,
                             env0.phase, &map_name,
-                            0.0, 0.0, 0.0,
+                            -1.0, -1.0, -1.0,
                             n,
                         );
                     }
