@@ -371,7 +371,7 @@ impl DungeonSimulator {
         self.prev_dist_to_exit = new_dist_to_exit;
         if old_dist >= 0.0 {
             // Positive reward for getting closer, negative for moving away
-            reward += (old_dist - new_dist_to_exit) * 0.05;
+            reward += (old_dist - new_dist_to_exit) * 0.5;
         }
 
         // Small time penalty to encourage speed
@@ -476,11 +476,16 @@ impl DungeonSimulator {
     }
 
     pub fn render_frame(&self) -> Vec<u8> {
-        // Cache: re-render every 8 steps
-        // (Simplified — always render in Rust, it's fast enough)
         self.renderer.render(
             &self.grid, &self.player, &self.enemies, &self.items,
-            self.exit_pos, &self.explored, &self.visited,
+            self.exit_pos, &self.explored, &self.visited, true,
+        )
+    }
+
+    pub fn render_frame_full(&self) -> Vec<u8> {
+        self.renderer.render(
+            &self.grid, &self.player, &self.enemies, &self.items,
+            self.exit_pos, &self.explored, &self.visited, false,
         )
     }
 

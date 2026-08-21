@@ -65,8 +65,8 @@ echo.
 echo ========================================
 echo   Installation complete!
 echo.
-echo   To run with viewer:    run.bat
-echo   To run headless:       run_noviewer.bat
+echo   To run training:  run.bat
+echo   To run headless:  run_noviewer.bat (logs to train_log.txt)
 echo ========================================
 echo.
 pause

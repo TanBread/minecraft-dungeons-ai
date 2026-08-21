@@ -132,7 +132,7 @@ fn run_sim(config_path: &str, resume: Option<&str>, show_viewer: bool, use_real_
     let shared = SharedViewerState::new();
 
     // Spawn training in background thread
-    let shared_train = shared.clone();
+    let shared_train = if show_viewer { Some(shared.clone()) } else { None };
     let train_running = Arc::new(AtomicBool::new(true));
     let train_running_clone = train_running.clone();
 
@@ -248,7 +248,7 @@ fn run_test(config_path: &str, steps: u32, use_real_maps: bool) {
 fn run_training_loop(
     mut trainer: train::PPOTrainer,
     mut envs: Vec<env::DungeonEnv>,
-    shared: SharedViewerState,
+    shared: Option<SharedViewerState>,
     running: Arc<AtomicBool>,
     total_timesteps: u64,
     num_envs: usize,
@@ -257,30 +257,7 @@ fn run_training_loop(
     println!("[Train] Starting training loop...");
     println!("[Train] Press Ctrl+C to stop.");
 
-    // Push initial stats so viewer shows correct data immediately
-    {
-        let env0 = &envs[0];
-        let frame = env0.sim.render_frame();
-        let (ow, oh) = (env0.output_w, env0.output_h);
-        shared.push_frame(frame, ow, oh);
-        let map_frame = env0.sim.render_full_map(200, 120);
-        shared.push_map(map_frame, 200, 120);
-        let hp = env0.sim.player.hp / env0.sim.player.max_hp;
-        let time = env0.sim.episode_steps as f32 * 0.1;
-        let map_name = match &env0.sim.generator {
-            sim::MapGenerator::Real(r) => r.current_map_name.clone(),
-            sim::MapGenerator::Synthetic(g) => g.current_map_name.clone(),
-        };
-        shared.push_stats(
-            hp, 0.0, time, f32::INFINITY,
-            0.0, 0, 0.0,
-            env0.phase, &map_name,
-            0.0, 0.0, 0.0,
-            num_envs,
-        );
-    }
-
-        let mut fps_counter: u64 = 0;
+    let mut fps_counter: u64 = 0;
     let mut fps_timer = Instant::now();
     let mut current_fps = 0.0f64;
     let steps_per_iter = (num_envs * n_steps) as u64;
@@ -292,9 +269,8 @@ fn run_training_loop(
             break;
         }
 
-        let (avg_reward, last_values) = trainer.collect_rollout(&mut envs, Some(&shared));
+        let (avg_reward, last_values) = trainer.collect_rollout(&mut envs, shared.as_ref());
 
-        // Merge per-env best_times into global tracker
         for env in &envs {
             for (map, &steps) in &env.sim.best_times {
                 let time = steps as f32 * 0.1;
@@ -326,32 +302,34 @@ fn run_training_loop(
             trainer.save(&format!("models/checkpoint_{}.safetensors", total));
         }
 
-        shared.push_reward(avg_reward);
-        shared.push_loss(stats.value_loss);
+        if let Some(ref s) = shared {
+            s.push_reward(avg_reward);
+            s.push_loss(stats.value_loss);
 
-        if let Some(env0) = envs.get_mut(0) {
-            let frame = env0.sim.render_frame();
-            let (ow, oh) = (env0.output_w, env0.output_h);
-            shared.push_frame(frame, ow, oh);
+            if let Some(env0) = envs.get_mut(0) {
+                let frame = env0.sim.render_frame_full();
+                let (ow, oh) = (env0.output_w, env0.output_h);
+                s.push_frame(frame, ow, oh);
 
-            let map_frame = env0.sim.render_full_map(200, 120);
-            shared.push_map(map_frame, 200, 120);
+                let map_frame = env0.sim.render_full_map(200, 120);
+                s.push_map(map_frame, 200, 120);
 
-            let hp = env0.sim.player.hp / env0.sim.player.max_hp;
-            let attack_cd = if env0.sim.player.attack_cooldown > 0.0 { 1.0 } else { 0.0 };
-            let time = env0.sim.episode_steps as f32 * 0.1;
-            let map_name = match &env0.sim.generator {
-                sim::MapGenerator::Real(r) => r.current_map_name.clone(),
-                sim::MapGenerator::Synthetic(g) => g.current_map_name.clone(),
-            };
-            let best_time = *global_best_times.get(&map_name).unwrap_or(&f32::INFINITY);
-            shared.push_stats(
-                hp, attack_cd, time, best_time,
-                current_fps as f32, total, avg_reward,
-                env0.phase, &map_name,
-                stats.policy_loss, stats.value_loss, stats.entropy,
-                num_envs,
-            );
+                let hp = env0.sim.player.hp / env0.sim.player.max_hp;
+                let attack_cd = if env0.sim.player.attack_cooldown > 0.0 { 1.0 } else { 0.0 };
+                let time = env0.sim.episode_steps as f32 * 0.1;
+                let map_name = match &env0.sim.generator {
+                    sim::MapGenerator::Real(r) => r.current_map_name.clone(),
+                    sim::MapGenerator::Synthetic(g) => g.current_map_name.clone(),
+                };
+                let best_time = *global_best_times.get(&map_name).unwrap_or(&f32::INFINITY);
+                s.push_stats(
+                    hp, attack_cd, time, best_time,
+                    current_fps as f32, total, avg_reward,
+                    env0.phase, &map_name,
+                    stats.policy_loss, stats.value_loss, stats.entropy,
+                    num_envs,
+                );
+            }
         }
 
         if total >= total_timesteps {

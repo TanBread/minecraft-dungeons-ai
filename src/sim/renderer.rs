@@ -82,6 +82,7 @@ impl Renderer {
         _exit_pos: (usize, usize),
         explored: &Array2<bool>,
         visited: &Array2<bool>,
+        skip_minimap: bool,
     ) -> Vec<u8> {
         let h = grid.nrows();
         let w = grid.ncols();
@@ -204,61 +205,60 @@ impl Renderer {
         // 7. Resize to output
         let mut frame = bilinear_resize(&view, vpx, vpx, self.output_w, self.output_h);
 
-        // 8. Draw minimap overlay (bottom-right)
-        let mm_size = 120usize.min(self.output_h / 3);
-        let mm_scale = h.max(w) / mm_size + 1;
-        let mm_w = w / mm_scale;
-        let mm_h = h / mm_scale;
-        let mut minimap = vec![[10u8; 3]; mm_w * mm_h];
+        // 8. Draw minimap overlay (bottom-right) — skip for CNN frames
+        if !skip_minimap {
+            let mm_size = 120usize.min(self.output_h / 3);
+            let mm_scale = h.max(w) / mm_size + 1;
+            let mm_w = w / mm_scale;
+            let mm_h = h / mm_scale;
+            let mut minimap = vec![[10u8; 3]; mm_w * mm_h];
 
-        for my in 0..mm_h {
-            for mx in 0..mm_w {
-                let gy = my * mm_scale;
-                let gx = mx * mm_scale;
-                if gy < h && gx < w && explored[[gy, gx]] {
-                    let tile = grid[[gy, gx]];
-                    let c = if tile == Tile::Wall as u8 {
-                        [30, 30, 30]
-                    } else if tile == Tile::Floor as u8 || tile == Tile::Door as u8 {
-                        [60, 60, 60]
-                    } else if tile == Tile::Exit as u8 {
-                        [0, 100, 60]
-                    } else {
-                        [10, 10, 10]
-                    };
-                    minimap[my * mm_w + mx] = c;
+            for my in 0..mm_h {
+                for mx in 0..mm_w {
+                    let gy = my * mm_scale;
+                    let gx = mx * mm_scale;
+                    if gy < h && gx < w && explored[[gy, gx]] {
+                        let tile = grid[[gy, gx]];
+                        let c = if tile == Tile::Wall as u8 {
+                            [30, 30, 30]
+                        } else if tile == Tile::Floor as u8 || tile == Tile::Door as u8 {
+                            [60, 60, 60]
+                        } else if tile == Tile::Exit as u8 {
+                            [0, 100, 60]
+                        } else {
+                            [10, 10, 10]
+                        };
+                        minimap[my * mm_w + mx] = c;
 
-                    // Visited tint
-                    if visited[[gy, gx]] && (tile == Tile::Floor as u8 || tile == Tile::Exit as u8) {
-                        minimap[my * mm_w + mx] = [100, 140, 100];
+                        if visited[[gy, gx]] && (tile == Tile::Floor as u8 || tile == Tile::Exit as u8) {
+                            minimap[my * mm_w + mx] = [100, 140, 100];
+                        }
                     }
                 }
             }
-        }
 
-        // Player dot on minimap
-        let mm_px = (px as usize / mm_scale).min(mm_w - 1);
-        let mm_py = (py as usize / mm_scale).min(mm_h - 1);
-        if mm_py < mm_h && mm_px < mm_w {
-            minimap[mm_py * mm_w + mm_px] = [0, 200, 255];
-        }
+            let mm_px = (px as usize / mm_scale).min(mm_w - 1);
+            let mm_py = (py as usize / mm_scale).min(mm_h - 1);
+            if mm_py < mm_h && mm_px < mm_w {
+                minimap[mm_py * mm_w + mm_px] = [0, 200, 255];
+            }
 
-        // Overlay minimap onto frame
-        let fy0 = self.output_h.saturating_sub(mm_h + 4);
-        let fx0 = self.output_w.saturating_sub(mm_w + 4);
-        for my in 0..mm_h {
-            for mx in 0..mm_w {
-                let fy = fy0 + my;
-                let fx = fx0 + mx;
-                if fy < self.output_h && fx < self.output_w {
-                    let idx = (fy * self.output_w + fx) * 3;
-                    let bg_r = frame[idx];
-                    let bg_g = frame[idx + 1];
-                    let bg_b = frame[idx + 2];
-                    let mm = minimap[my * mm_w + mx];
-                    frame[idx] = ((bg_r as f32 * 0.3) as u8).wrapping_add(mm[0] / 2);
-                    frame[idx + 1] = ((bg_g as f32 * 0.3) as u8).wrapping_add(mm[1] / 2);
-                    frame[idx + 2] = ((bg_b as f32 * 0.3) as u8).wrapping_add(mm[2] / 2);
+            let fy0 = self.output_h.saturating_sub(mm_h + 4);
+            let fx0 = self.output_w.saturating_sub(mm_w + 4);
+            for my in 0..mm_h {
+                for mx in 0..mm_w {
+                    let fy = fy0 + my;
+                    let fx = fx0 + mx;
+                    if fy < self.output_h && fx < self.output_w {
+                        let idx = (fy * self.output_w + fx) * 3;
+                        let bg_r = frame[idx];
+                        let bg_g = frame[idx + 1];
+                        let bg_b = frame[idx + 2];
+                        let mm = minimap[my * mm_w + mx];
+                        frame[idx] = ((bg_r as f32 * 0.3) as u8).wrapping_add(mm[0] / 2);
+                        frame[idx + 1] = ((bg_g as f32 * 0.3) as u8).wrapping_add(mm[1] / 2);
+                        frame[idx + 2] = ((bg_b as f32 * 0.3) as u8).wrapping_add(mm[2] / 2);
+                    }
                 }
             }
         }
